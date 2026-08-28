@@ -1,5 +1,68 @@
 # Analysis Engine — architecture
 
+## Two planes
+
+The engine and the viewer are separate systems with separate hosts, and the split is
+deliberate rather than incidental.
+
+```mermaid
+flowchart LR
+  subgraph exec["Execution plane — laptop, container, or GitHub Actions"]
+    direction TB
+    tgt[("Target system")]
+    eng["engine/<br/><small>collect, derive, render</small>"]
+    art["Nine artefacts<br/><small>model.json + 00_EVIDENCE.json + six documents</small>"]
+    tgt -->|GET/HEAD, read-only| eng --> art
+  end
+  subgraph view["Viewing plane — Vercel"]
+    direction TB
+    api["POST /api/runs<br/><small>bearer + bypass</small>"]
+    blob[("Vercel Blob<br/><small>private</small>")]
+    ui["Run index and report viewer"]
+    api --> blob --> ui
+  end
+  art -->|publish.py| api
+```
+
+### Why the engine is not serverless
+
+Vercel functions are the wrong host for the engine, and working around that would mean
+weakening the engine:
+
+- **The repo collector needs a checkout on disk.** It walks the target tree — Terraform,
+  Kubernetes manifests, migrations, workflow files — and a read-only serverless filesystem
+  has nothing to walk.
+- **The cloud and database collectors need long-lived credentials.** An AWS read-only role
+  and a database DSN belong in an environment that already holds them. Handing them to a
+  public HTTP endpoint moves the blast radius to the wrong place.
+- **A full run is a multi-minute job**, driven by probe sampling and cloud API pagination,
+  against a filesystem it needs to write nine files to.
+- **The engine should run where the access already is.** Inside a target's own CI, its own
+  VPC, its own laptop. That is also why the core has zero required dependencies.
+
+So the engine runs where the access is, and ships a finished, self-describing result.
+
+### What the viewing plane may and may not do
+
+The web app reads `model.json` and `00_EVIDENCE.json` and renders them. It never
+re-derives a fact. Porting analysis logic into TypeScript is the failure mode this split
+exists to prevent — two implementations of the capacity model would drift, and the
+reproducible-from-evidence guarantee would quietly stop being true.
+
+Rounding is the one transformation the viewer performs, and only at render time, because
+capacity values are stored unrounded so the derived identities hold exactly.
+
+| Layer | Execution plane | Viewing plane |
+|---|---|---|
+| Front end | `index.html`, six markdown documents | `web/app` — run index, seven tabs per run |
+| Middleware | `ae.cli` — pipeline orchestration | `web/app/api/runs` — ingest and read |
+| Back end | `ae.analyze`, `ae.ontology`, `ae.recommend` | none; nothing is derived here |
+| Data | `ae.core.EvidenceStore`, `00_EVIDENCE.json` | `web/lib/storage.ts` over Vercel Blob |
+| Infrastructure | `ae.collect_*`, GitHub Actions | Vercel project, Deployment Protection |
+
+The dependency rule in each plane runs one way, and never crosses back: the viewer depends
+on the engine's output format, and the engine knows nothing about the viewer.
+
 ## Systems architecture
 
 The engine is a four-stage pipeline with one shared fact base. Collectors only
