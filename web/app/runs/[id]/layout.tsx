@@ -20,9 +20,20 @@ export default async function RunLayout({
   const { model, evidence, summary } = run;
   const { capacity, ontology } = model;
 
+  // capacity.rows holds only the components a use case put load on, so it undercounts
+  // the system. The component set is the union of every transfer endpoint plus any
+  // sized component that has no edges. This counts what model.json already contains;
+  // it does not derive anything new.
+  const components = new Set<string>();
+  for (const f of model.flows) {
+    components.add(f.src);
+    components.add(f.dst);
+  }
+  for (const r of capacity.rows) components.add(r.component);
+
   return (
     <>
-      <span className="kick">Analysis Engine · {date(evidence.generated_at)}</span>
+      <span className="kick">Run {id} · {date(evidence.generated_at)}</span>
       <h1>{model.target}</h1>
       <p className="sub">
         Context architecture, transfer throughput, scaling math and a ranked roadmap,
@@ -31,7 +42,11 @@ export default async function RunLayout({
       </p>
 
       <Tiles>
-        <StatTile label="Components" value={capacity.rows.length} />
+        <StatTile
+          label="Components"
+          value={components.size}
+          note={`${capacity.rows.length} carry sized load`}
+        />
         <StatTile label="Transfers" value={model.flows.length} />
         <StatTile label="Entities" value={ontology.objects.length} />
         <StatTile
