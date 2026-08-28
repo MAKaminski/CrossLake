@@ -1,0 +1,97 @@
+name: analyze
+
+# Runs the engine against a target repository and publishes the result to the viewer.
+# The engine is not serverless: it needs a checkout on disk and long-lived credentials,
+# which is exactly what a CI runner provides and a Vercel function does not.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'owner/repo to analyse'
+        required: true
+        default: 'MAKaminski/CrossLake'
+      ref:
+        description: 'git ref in the target repository'
+        required: false
+        default: ''
+      target_config_path:
+        description: 'path to target.json inside the target repository'
+        required: true
+        default: 'engine/target.example.json'
+      repo_path:
+        description: 'path to analyse inside the target repository (overrides repo.path)'
+        required: false
+        default: 'engine/fixtures/acme-lending'
+      business_config_path:
+        description: 'optional path to the interview answers'
+        required: false
+        default: 'engine/fixtures/acme-lending.business.json'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the engine
+        uses: actions/checkout@v6
+        with:
+          path: engine-repo
+
+      - name: Check out the target
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.target_repo }}
+          ref: ${{ inputs.ref }}
+          path: target
+          # The engine is read-only against every target; do not leave a usable
+          # credential on disk for collectors to trip over.
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install the engine
+        run: pip install ./engine-repo/engine
+
+      - name: Analyse
+        env:
+          # Collector credentials are injected as environment variables and referenced
+          # from the target config as ${VAR}. They are never written into a config file
+          # and never committed. Add only the ones a given target actually needs.
+          ANALYSIS_DB_DSN: ${{ secrets.ANALYSIS_DB_DSN }}
+          ANALYSIS_BASE_URL: ${{ secrets.ANALYSIS_BASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          args=(--target "target/${{ inputs.target_config_path }}" --out out)
+          if [ -n "${{ inputs.repo_path }}" ]; then
+            args+=(--repo "target/${{ inputs.repo_path }}")
+          fi
+          if [ -n "${{ inputs.business_config_path }}" ]; then
+            args+=(--business "target/${{ inputs.business_config_path }}")
+          fi
+          ae analyze "${args[@]}"
+          ls -la out
+
+      - name: Publish to the viewer
+        env:
+          WEB_URL: ${{ vars.WEB_URL }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          # Deployment Protection challenges this POST before it reaches the route,
+          # so the bypass secret is required in addition to the bearer token.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: python3 engine-repo/engine/scripts/publish.py --dir out
+
+      - name: Keep the run as a build artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-run
+          path: out
+          retention-days: 14

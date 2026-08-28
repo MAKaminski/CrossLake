@@ -1,0 +1,48 @@
+name: engine tests
+
+on:
+  pull_request:
+    paths:
+      - 'engine/**'
+      - '.github/workflows/engine-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'engine/**'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.11', '3.13']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      # No requirements file on purpose: the engine core has zero dependencies.
+      - name: Install the engine
+        run: pip install ./engine
+
+      # tests/test_smoke.py reads target.json and business.json from the engine root,
+      # and both are gitignored because a real one carries volumes, prices and DSNs.
+      # The synthetic fixture pair is tracked and copied into place, which leaves the
+      # test file itself byte-identical.
+      - name: Smoke test
+        working-directory: engine
+        run: |
+          cp fixtures/acme-lending.target.json target.json
+          cp fixtures/acme-lending.business.json business.json
+          python -m tests.test_smoke
+
+      - name: Console script writes nine artefacts
+        working-directory: engine
+        run: |
+          ae analyze --target target.example.json --out "$RUNNER_TEMP/out"
+          count=$(ls "$RUNNER_TEMP/out" | wc -l | tr -d ' ')
+          test "$count" -eq 9 || { echo "expected 9 artefacts, got $count"; exit 1; }
