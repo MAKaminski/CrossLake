@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "analysis-engine"
+description = "Point it at a system. Get the technical due-diligence documentation set back."
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+# Deliberately empty. A zero-dependency core is what lets the engine run inside a
+# target's own environment without an install. The repo and probe collectors need
+# nothing beyond the standard library; the other two are opt-in extras below.
+dependencies = []
+
+[project.optional-dependencies]
+cloud = ["boto3"]
+postgres = ["psycopg[binary]"]
+
+[project.scripts]
+ae = "ae.cli:main"
+
+[tool.setuptools]
+packages = ["ae"]
+
+[tool.setuptools.dynamic]
+version = { attr = "ae.__version__" }

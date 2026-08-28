@@ -1,0 +1,24 @@
+# Real target configuration — carries volumes, prices and DSNs.
+# Only the *.example.json files and fixtures/acme-lending.*.json are tracked.
+target.json
+business.json
+
+# Analysis output
+out/
+*.env
+.env*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Node / Next.js
+node_modules/
+.next/
+.vercel/
+next-env.d.ts

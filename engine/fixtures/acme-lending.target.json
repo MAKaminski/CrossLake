@@ -1,0 +1,63 @@
+{
+  "name": "acme-lending",
+  "repo": {
+    "path": "./fixtures/acme-lending"
+  },
+  "cloud": {
+    "enabled": false,
+    "provider": "aws",
+    "profile": "readonly",
+    "region": "us-east-1"
+  },
+  "database": {
+    "enabled": false,
+    "kind": "postgres",
+    "dsn": "${ANALYSIS_DB_DSN}"
+  },
+  "probe": {
+    "enabled": false,
+    "base_url": "${ANALYSIS_BASE_URL}",
+    "endpoints": [
+      "/health",
+      "/api/loans"
+    ],
+    "samples": 5
+  },
+  "usecases": [
+    {
+      "name": "submit loan application",
+      "volume_per_day": 40000,
+      "peak_factor": 4.0,
+      "path": [
+        "web",
+        "api",
+        "primary-database"
+      ],
+      "fanout": {
+        "primary-database": 6
+      },
+      "revenue_per_event": 0.0
+    },
+    {
+      "name": "check application status",
+      "volume_per_day": 120000,
+      "peak_factor": 3.0,
+      "path": [
+        "web",
+        "api",
+        "primary-database"
+      ],
+      "fanout": {
+        "primary-database": 2
+      }
+    }
+  ],
+  "assumptions": {
+    "peak_factor": 3.0,
+    "default_service_ms": 120.0,
+    "default_concurrency_per_replica": 8,
+    "target_utilisation": 0.7,
+    "default_volume_per_day": 100000,
+    "declared_monthly_infra_cost": 28400
+  }
+}
