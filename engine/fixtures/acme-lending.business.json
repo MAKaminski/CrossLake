@@ -1,0 +1,27 @@
+{
+  "purpose": "Point-of-sale lending: a borrower applies at a merchant, the system decides and funds the loan, then services repayment.",
+  "billable_unit": "loan funded",
+  "price_per_unit": 180.0,
+  "units_per_month": 96000,
+  "growth_rate_monthly": 0.06,
+  "variable_cogs_per_unit": 42.0,
+  "fixed_monthly_cost": 220000,
+  "money_entities": [
+    "loans",
+    "payments",
+    "applications"
+  ],
+  "counterparties": [
+    "Stripe (payment capture)",
+    "Plaid (bank verification)",
+    "Originating bank partner"
+  ],
+  "sla": "99.9% monthly uptime; decision returned in under 5 seconds at p95",
+  "compliance": [
+    "SOC 2 Type II",
+    "GLBA",
+    "state lending licences",
+    "PCI DSS SAQ-A"
+  ],
+  "deploy_trigger": "merge to main runs .github/workflows/deploy.yml; production apply needs an approving reviewer"
+}
