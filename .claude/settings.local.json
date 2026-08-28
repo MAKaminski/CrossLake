@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(set -e)",
-      "Bash(git remote *)",
-      "Bash(git ls-remote *)"
-    ]
-  }
-}
