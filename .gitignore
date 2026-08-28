@@ -22,3 +22,6 @@ node_modules/
 .next/
 .vercel/
 next-env.d.ts
+
+# Claude Code per-machine permission grants, not shared config.
+.claude/settings.local.json
