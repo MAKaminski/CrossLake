@@ -1,0 +1,40 @@
+version: 2
+
+# engine/fixtures/acme-lending/ is a synthetic target, not a dependency tree.
+#
+# It is a fake repository the Analysis Engine is pointed at during tests, and its
+# outdated and misconfigured contents are the *inputs* the engine is supposed to
+# detect as findings. tests/test_smoke.py asserts exact counts against it. Upgrading
+# anything in there removes the very conditions under test, so every manifest below
+# the fixture is excluded from scanning.
+#
+# exclude-paths is documented for this case ("test assets, vendored code"). Patterns
+# are relative to each entry's `directory`, which is why every entry roots at "/".
+# Do not add `target-branch` to these entries: setting it makes the entry's options
+# stop applying to security updates, which would let the fixture PRs return.
+
+updates:
+  # The real web app: web/package.json
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    exclude-paths:
+      - "engine/fixtures/**"
+
+  # The engine's optional extras: engine/pyproject.toml. The core itself has zero
+  # required dependencies and that is deliberate.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    exclude-paths:
+      - "engine/fixtures/**"
+
+  # Our own workflows, not the fixture's synthetic .github/workflows/deploy.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    exclude-paths:
+      - "engine/fixtures/**"
